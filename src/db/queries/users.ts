@@ -17,6 +17,12 @@ export const getUser = async (name: string) => {
   return user;
 };
 
+export const getUserById = async (id: string) => {
+  const [user] = await db.select().from(users).where(eq(users.id, id));
+
+  return user;
+};
+
 export const getUsers = async () => {
   const result = await db.select().from(users);
 

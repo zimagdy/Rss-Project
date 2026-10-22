@@ -1,4 +1,5 @@
 import { readConfig, setUser } from "./config.js";
+import { createFeed, deleteAllFeeds, getFeeds } from "./db/queries/feeds.js";
 import {
   createUser,
   deleteAllUsers,
@@ -6,6 +7,7 @@ import {
   getUsers,
 } from "./db/queries/users.js";
 import { fetchFeed } from "./rss/rss.js";
+import { printFeed } from "./utils/print.js";
 
 export type CommandHandler = (
   cmdName: string,
@@ -18,6 +20,8 @@ export type CommandsRegistry = {
   reset: CommandHandler | undefined;
   users: CommandHandler | undefined;
   agg: CommandHandler | undefined;
+  addfeed: CommandHandler | undefined;
+  feeds: CommandHandler | undefined;
 };
 
 const commandNames: Record<keyof CommandsRegistry, null> = {
@@ -26,6 +30,8 @@ const commandNames: Record<keyof CommandsRegistry, null> = {
   reset: null,
   users: null,
   agg: null,
+  addfeed: null,
+  feeds: null,
 };
 
 export const handlerLogin: CommandHandler = async (cmdName, ...args) => {
@@ -87,6 +93,7 @@ User:
 export const handlerReset: CommandHandler = async () => {
   try {
     await deleteAllUsers();
+    await deleteAllFeeds();
     console.log("Deleted successfully");
   } catch (e) {
     console.error("Deleted Failed ", e);
@@ -137,6 +144,42 @@ export const handlerAgg: CommandHandler = async () => {
   }
 };
 
+export const handlerAddFeed: CommandHandler = async (cmdName, ...args) => {
+  try {
+    const [name, url] = args;
+
+    if (name === undefined || url === undefined) {
+      throw new Error(
+        `The ${cmdName} handler expects a two arguments, the name and url`,
+      );
+    }
+
+    // Read the gator config file
+    const currentUserName = readConfig().currentUserName;
+
+    const userId = (await getUser(currentUserName)).id;
+
+    // Create the feed
+    await createFeed(name, url, userId);
+  } catch (e) {
+    console.error("Add Feed Failed ", e);
+    throw e;
+  }
+};
+
+export const handlerFeeds: CommandHandler = async () => {
+  try {
+    const feeds = await getFeeds();
+
+    for (const feed of feeds) {
+      await printFeed(feed);
+    }
+  } catch (e) {
+    console.error("Fetch feeds Failed ", e);
+    throw e;
+  }
+};
+
 export const whichHandler = async (
   cmdName: string,
 ): Promise<CommandHandler> => {
@@ -150,6 +193,10 @@ export const whichHandler = async (
   if (name === "users") return handlerUsers;
 
   if (name === "agg") return handlerAgg;
+
+  if (name === "addfeed") return handlerAddFeed;
+
+  if (name === "feeds") return handlerFeeds;
 
   throw new Error(`
     This command doesn't exist
