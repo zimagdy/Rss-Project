@@ -11,6 +11,7 @@ const commandNames: CommandsRegistry = {
   register: undefined,
   reset: undefined,
   users: undefined,
+  agg: undefined,
 };
 
 const argument = process.argv.slice(2);

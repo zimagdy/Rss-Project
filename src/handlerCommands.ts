@@ -5,6 +5,7 @@ import {
   getUser,
   getUsers,
 } from "./db/queries/users.js";
+import { fetchFeed } from "./rss/rss.js";
 
 export type CommandHandler = (
   cmdName: string,
@@ -16,6 +17,7 @@ export type CommandsRegistry = {
   register: CommandHandler | undefined;
   reset: CommandHandler | undefined;
   users: CommandHandler | undefined;
+  agg: CommandHandler | undefined;
 };
 
 const commandNames: Record<keyof CommandsRegistry, null> = {
@@ -23,6 +25,7 @@ const commandNames: Record<keyof CommandsRegistry, null> = {
   register: null,
   reset: null,
   users: null,
+  agg: null,
 };
 
 export const handlerLogin: CommandHandler = async (cmdName, ...args) => {
@@ -110,6 +113,30 @@ export const handlerUsers: CommandHandler = async () => {
   }
 };
 
+export const handlerAgg: CommandHandler = async () => {
+  try {
+    const result = (await fetchFeed("https://www.wagslane.dev/index.xml"))
+      .channel;
+    const { title, link, description, item } = result;
+    console.log(`
+    title: ${title}
+    link: ${link}
+    description: ${description}
+    \n`);
+    console.log("Item properties ");
+    for (const a of item) {
+      console.log(`
+      title: ${a.title}
+      link: ${a.link}
+      description: ${a.description}
+      pubData: ${a.pubDate}`);
+    }
+  } catch (e) {
+    console.error("Egg failed ", e);
+    throw e;
+  }
+};
+
 export const whichHandler = async (
   cmdName: string,
 ): Promise<CommandHandler> => {
@@ -121,6 +148,8 @@ export const whichHandler = async (
   if (name === "reset") return handlerReset;
 
   if (name === "users") return handlerUsers;
+
+  if (name === "agg") return handlerAgg;
 
   throw new Error(`
     This command doesn't exist
