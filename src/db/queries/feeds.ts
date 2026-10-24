@@ -1,5 +1,6 @@
 import { db } from "../index.js";
 import { feeds } from "../schema.js";
+import { eq } from "drizzle-orm";
 
 export const createFeed = async (name: string, url: string, userId: string) => {
   const [result] = await db
@@ -16,6 +17,12 @@ export const createFeed = async (name: string, url: string, userId: string) => {
 
 export const getFeeds = async () => {
   const result = await db.select().from(feeds);
+
+  return result;
+};
+
+export const getFeedByURL = async (url: string) => {
+  const [result] = await db.select().from(feeds).where(eq(feeds.url, url));
 
   return result;
 };

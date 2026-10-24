@@ -1,5 +1,14 @@
 import { readConfig, setUser } from "./config.js";
-import { createFeed, deleteAllFeeds, getFeeds } from "./db/queries/feeds.js";
+import {
+  createFeed,
+  deleteAllFeeds,
+  getFeedByURL,
+  getFeeds,
+} from "./db/queries/feeds.js";
+import {
+  createFeedFollow,
+  getFeedFollowsForUser,
+} from "./db/queries/following.js";
 import {
   createUser,
   deleteAllUsers,
@@ -22,6 +31,8 @@ export type CommandsRegistry = {
   agg: CommandHandler | undefined;
   addfeed: CommandHandler | undefined;
   feeds: CommandHandler | undefined;
+  follow: CommandHandler | undefined;
+  following: CommandHandler | undefined;
 };
 
 const commandNames: Record<keyof CommandsRegistry, null> = {
@@ -32,6 +43,8 @@ const commandNames: Record<keyof CommandsRegistry, null> = {
   agg: null,
   addfeed: null,
   feeds: null,
+  follow: null,
+  following: null,
 };
 
 export const handlerLogin: CommandHandler = async (cmdName, ...args) => {
@@ -160,7 +173,8 @@ export const handlerAddFeed: CommandHandler = async (cmdName, ...args) => {
     const userId = (await getUser(currentUserName)).id;
 
     // Create the feed
-    await createFeed(name, url, userId);
+    const feed = await createFeed(name, url.toLowerCase(), userId);
+    await createFeedFollow(userId, feed.id);
   } catch (e) {
     console.error("Add Feed Failed ", e);
     throw e;
@@ -180,6 +194,47 @@ export const handlerFeeds: CommandHandler = async () => {
   }
 };
 
+export const handlerFollow: CommandHandler = async (cmdName, ...args) => {
+  try {
+    const [url] = args;
+
+    if (url === undefined) {
+      throw new Error(
+        `The ${cmdName} handler expects a one arguments, the url`,
+      );
+    }
+
+    const currentUserName = readConfig().currentUserName;
+
+    const feedId = (await getFeedByURL(url.toLowerCase())).id;
+    const userId = (await getUser(currentUserName.toLowerCase())).id;
+
+    const result = await createFeedFollow(userId, feedId);
+
+    console.log(result);
+  } catch (e) {
+    console.error("Follow failed ", e);
+    throw e;
+  }
+};
+
+export const handlerFollowing: CommandHandler = async () => {
+  try {
+    // get current username
+    const currentUserName = readConfig().currentUserName;
+
+    // get the id
+    const userId = (await getUser(currentUserName)).id;
+
+    // print the names of the feeds
+    const feed = await getFeedFollowsForUser(userId);
+    console.log("Feed Names: ");
+    for (const feedName of feed) {
+      console.log(feedName.feedName);
+    }
+  } catch (e) {}
+};
+
 export const whichHandler = async (
   cmdName: string,
 ): Promise<CommandHandler> => {
@@ -197,6 +252,10 @@ export const whichHandler = async (
   if (name === "addfeed") return handlerAddFeed;
 
   if (name === "feeds") return handlerFeeds;
+
+  if (name === "follow") return handlerFollow;
+
+  if (name === "following") return handlerFollowing;
 
   throw new Error(`
     This command doesn't exist

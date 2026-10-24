@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc",
-    "start": "tsx ./src/index.ts"
+    "start": "tsx ./src/index.ts",
+    "db:migrate": "npx drizzle-kit generate && npx drizzle-kit migrate"
   },
   "keywords": [],
   "author": "",
