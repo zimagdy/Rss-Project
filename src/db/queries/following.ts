@@ -1,6 +1,7 @@
 import { db } from "../index.js";
 import { feedFollows, users, feeds } from "../schema.js";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getFeedByURL } from "./feeds.js";
 
 export const createFeedFollow = async (userId: string, feedId: string) => {
   const [newFeedFollow] = await db
@@ -39,4 +40,26 @@ export const getFeedFollowsForUser = async (userId: string) => {
     userName: row.users.name,
     feedName: row.feeds.name,
   }));
+};
+
+export const deleteFeedFollow = async (userId: string, feedURL: string) => {
+  try {
+    // Get feed it by feedURL
+    const feed = await getFeedByURL(feedURL);
+
+    if (!feed) {
+      throw new Error(`There is no feed for this url (${feedURL})`);
+    }
+
+    const feedId = feed.id;
+
+    await db
+      .delete(feedFollows)
+      .where(
+        and(eq(feedFollows.userId, userId), eq(feedFollows.feedId, feedId)),
+      );
+  } catch (e) {
+    console.error("Deletion Failed ", e);
+    throw e;
+  }
 };
