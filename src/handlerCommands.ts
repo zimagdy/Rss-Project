@@ -23,6 +23,7 @@ import {
   type UserCommandHandler,
 } from "./middleware/middleware.js";
 import { convertToMs, parseDuration } from "./utils/ForTime.js";
+import { getPostsForUser } from "./db/queries/posts.js";
 
 export type CommandHandler = (
   cmdName: string,
@@ -40,6 +41,7 @@ export type CommandsRegistry = {
   follow: CommandHandler | undefined;
   following: CommandHandler | undefined;
   unfollow: CommandHandler | undefined;
+  browse: CommandHandler | undefined;
 };
 
 const commandNames: Record<keyof CommandsRegistry, null> = {
@@ -53,6 +55,7 @@ const commandNames: Record<keyof CommandsRegistry, null> = {
   follow: null,
   following: null,
   unfollow: null,
+  browse: null,
 };
 
 export const handlerLogin: CommandHandler = async (cmdName, ...args) => {
@@ -277,6 +280,38 @@ export const handlerUnfollow: UserCommandHandler = async (
   }
 };
 
+export const handlerBrowse: UserCommandHandler = async (
+  cmdName,
+  user,
+  ...args
+) => {
+  try {
+    const [limit] = args;
+
+    const castLimit = limit === undefined ? 2 : Number(limit);
+
+    const result = await getPostsForUser(user.id, castLimit);
+
+    if (result.length === 0) {
+      console.log(`There are no posts for ${user.name}`);
+      return;
+    }
+
+    console.log("The posts:");
+
+    for (const post of result) {
+      console.log(`
+Title: ${post.title}
+Description: ${post.description ?? "No description"}
+Published At: ${post.publishedAt}
+URL: ${post.url}`);
+    }
+  } catch (e) {
+    console.error("Browsing failed:", e);
+    throw e;
+  }
+};
+
 export const whichHandler = async (
   cmdName: string,
 ): Promise<CommandHandler> => {
@@ -300,6 +335,8 @@ export const whichHandler = async (
   if (name === "following") return middlewareLoggedIn(handlerFollowing);
 
   if (name === "unfollow") return middlewareLoggedIn(handlerUnfollow);
+
+  if (name === "browse") return middlewareLoggedIn(handlerBrowse);
 
   throw new Error(`
     This command doesn't exist

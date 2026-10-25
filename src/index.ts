@@ -17,6 +17,7 @@ const commandNames: CommandsRegistry = {
   follow: undefined,
   following: undefined,
   unfollow: undefined,
+  browse: undefined,
 };
 
 const argument = process.argv.slice(2);
