@@ -14,15 +14,15 @@ import {
   createUser,
   deleteAllUsers,
   getUser,
-  getUserById,
   getUsers,
 } from "./db/queries/users.js";
-import { fetchFeed } from "./rss/rss.js";
+import { scrapeFeeds } from "./rss/rss.js";
 import { printFeed } from "./utils/print.js";
 import {
   middlewareLoggedIn,
   type UserCommandHandler,
 } from "./middleware/middleware.js";
+import { convertToMs, parseDuration } from "./utils/ForTime.js";
 
 export type CommandHandler = (
   cmdName: string,
@@ -141,28 +141,47 @@ export const handlerUsers: CommandHandler = async () => {
   }
 };
 
-export const handlerAgg: CommandHandler = async () => {
-  try {
-    const result = (await fetchFeed("https://www.wagslane.dev/index.xml"))
-      .channel;
-    const { title, link, description, item } = result;
-    console.log(`
-    title: ${title}
-    link: ${link}
-    description: ${description}
-    \n`);
-    console.log("Item properties ");
-    for (const a of item) {
-      console.log(`
-      title: ${a.title}
-      link: ${a.link}
-      description: ${a.description}
-      pubData: ${a.pubDate}`);
-    }
-  } catch (e) {
-    console.error("Egg failed ", e);
-    throw e;
+export const handlerAgg: CommandHandler = async (cmdName, ...args) => {
+  const durationStr = args[0];
+
+  if (durationStr === undefined) {
+    throw new Error(
+      `The ${cmdName} handler expects one argument, the timeBetweenRequest`,
+    );
   }
+
+  const parseTime = parseDuration(durationStr);
+
+  if (!parseTime) {
+    throw new Error("Invalid duration");
+  }
+
+  const [, , unit] = parseTime;
+
+  const validUnits = ["ms", "s", "m", "h"];
+
+  if (!validUnits.includes(unit)) {
+    throw new Error("The time should have one of these units: ms, s, m, h");
+  }
+
+  let timeBetweenRequest = parseInt(parseTime[1]);
+  console.log(`Collecting feeds every ${timeBetweenRequest}${unit}`);
+
+  timeBetweenRequest = convertToMs(timeBetweenRequest, unit);
+
+  scrapeFeeds().catch(handlerError);
+
+  const interval = setInterval(() => {
+    scrapeFeeds().catch(handlerError);
+  }, timeBetweenRequest);
+
+  await new Promise<void>((resolve) => {
+    process.on("SIGINT", () => {
+      console.log("Shutting down feed aggregator...");
+      clearInterval(interval);
+      resolve();
+    });
+  });
 };
 
 export const handlerAddFeed: UserCommandHandler = async (
@@ -332,4 +351,8 @@ export const runCommand = async (
   }
   // @ts-ignore
   await registry[name](name, ...args);
+};
+
+const handlerError = (err: unknown) => {
+  console.error("Error scraping feed ", err);
 };

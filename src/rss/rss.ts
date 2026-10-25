@@ -1,4 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
+import { getNextFeedToFetch, markFeedFetched } from "../db/queries/feeds.js";
+import { duration } from "drizzle-orm/gel-core";
 
 type RSSFeed = {
   channel: {
@@ -99,3 +101,21 @@ function isRSSItem(fields: unknown): fields is RSSItem {
     item.pubDate.trim() !== ""
   );
 }
+
+export const scrapeFeeds = async () => {
+  // get the next feed
+  const nextFeed = await getNextFeedToFetch();
+
+  const result = await fetchFeed(nextFeed.url);
+
+  // Mark it as fetched
+  await markFeedFetched(nextFeed.id);
+
+  // print the titles
+  console.log("Titles: ");
+  for (const item of result.channel.item) {
+    console.log(`- ${item.title}`);
+  }
+
+  console.log("---------------------------------------");
+};
