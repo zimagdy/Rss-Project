@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { getNextFeedToFetch, markFeedFetched } from "../db/queries/feeds.js";
-import { duration } from "drizzle-orm/gel-core";
+import { db } from "../db/index.js";
+import { posts } from "../db/schema.js";
 
 type RSSFeed = {
   channel: {
@@ -103,19 +104,35 @@ function isRSSItem(fields: unknown): fields is RSSItem {
 }
 
 export const scrapeFeeds = async () => {
-  // get the next feed
   const nextFeed = await getNextFeedToFetch();
+
+  if (!nextFeed) {
+    return;
+  }
 
   const result = await fetchFeed(nextFeed.url);
 
-  // Mark it as fetched
-  await markFeedFetched(nextFeed.id);
-
-  // print the titles
-  console.log("Titles: ");
   for (const item of result.channel.item) {
-    console.log(`- ${item.title}`);
+    const publishedAt = new Date(item.pubDate);
+
+    if (Number.isNaN(publishedAt.getTime())) {
+      console.error(`Invalid publication date for: ${item.title}`);
+      continue;
+    }
+
+    await db
+      .insert(posts)
+      .values({
+        title: item.title,
+        url: item.link,
+        feedId: nextFeed.id,
+        description: item.description ?? null,
+        publishedAt,
+      })
+      .onConflictDoNothing();
   }
 
-  console.log("---------------------------------------");
+  await markFeedFetched(nextFeed.id);
+
+  console.log("The collecting finished");
 };

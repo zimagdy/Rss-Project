@@ -1,4 +1,5 @@
 import { pgTable, timestamp, uuid, text, unique } from "drizzle-orm/pg-core";
+import { title } from "node:process";
 
 // Create user table
 export const users = pgTable("users", {
@@ -43,6 +44,23 @@ export const feedFollows = pgTable(
     userFeedUnique: unique().on(table.userId, table.feedId),
   }),
 );
+
+// Create posts table
+export const posts = pgTable("posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  url: text("url").notNull().unique(),
+  description: text("description"),
+  publishedAt: timestamp("published_at").notNull(),
+  feedId: uuid("feed_id")
+    .references(() => feeds.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
 
 export type User = typeof users.$inferSelect;
 export type Feed = typeof feeds.$inferSelect;

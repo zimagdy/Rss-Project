@@ -29,6 +29,13 @@
       "when": 1792943824558,
       "tag": "0003_young_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792953781750,
+      "tag": "0004_fresh_serpent_society",
+      "breakpoints": true
     }
   ]
 }
